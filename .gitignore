@@ -1,0 +1,40 @@
+# Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.m
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/google-services.json
+
+# macOS
+macos/Pods/
+macos/.symlinks/
+
+# Xcode
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# General
+.DS_Store
+build/
+.dart_tool/
+
+# Android Kotlin build logs
+android/.kotlin/
+
+# iOS auto-generated
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Sito separato
+memolink-site/
