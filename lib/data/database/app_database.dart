@@ -19,7 +19,7 @@ class AppDatabase {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -37,6 +37,11 @@ class AppDatabase {
     }
     if (!catColumns.any((c) => c['name'] == 'icon_code')) {
       await db.execute('ALTER TABLE categories ADD COLUMN icon_code INTEGER');
+    }
+    // Assicura che saved_items abbia la colonna 'category' TEXT
+    var itemColumns = await db.rawQuery('PRAGMA table_info(saved_items)');
+    if (!itemColumns.any((c) => c['name'] == 'category')) {
+      await db.execute('ALTER TABLE saved_items ADD COLUMN category TEXT');
     }
   }
 
@@ -85,6 +90,25 @@ class AppDatabase {
         UPDATE categories
         SET position = 0
         WHERE name = 'I ❤️ Abitini'
+      ''');
+    }
+    if (oldVersion < 10) {
+      // Rimuovi la categoria 'iloveabitini' aggiunta per errore
+      // Prima sposta i link (solo se esiste la colonna 'category')
+      try {
+        final columns = await db.rawQuery('PRAGMA table_info(saved_items)');
+        final hasCategoryCol = columns.any((c) => c['name'] == 'category');
+        if (hasCategoryCol) {
+          await db.execute('''
+            UPDATE saved_items
+            SET category = 'I ❤️ Abitini'
+            WHERE category = 'iloveabitini'
+          ''');
+        }
+      } catch (_) {}
+      // Elimina sempre la categoria duplicata
+      await db.execute('''
+        DELETE FROM categories WHERE name = 'iloveabitini'
       ''');
     }
   }

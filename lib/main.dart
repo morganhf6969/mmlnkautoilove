@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +12,7 @@ import 'package:memolink/l10n/app_localizations.dart';
 import 'app/routes.dart';
 import 'data/models/saved_item.dart';
 import 'data/repositories/saved_item_repository.dart';
+import 'data/database/app_database.dart';
 import 'features/onboarding/onboarding_page.dart';
 
 // Global locale notifier
@@ -22,11 +24,50 @@ Future<void> _loadLocale() async {
   localeNotifier.value = Locale(code);
 }
 
+Future<void> _seedDefaultItems() async {
+  final prefs = await SharedPreferences.getInstance();
+  final alreadySeeded = prefs.getBool('iloveabitini_seeded_v4') ?? false;
+  if (alreadySeeded) return;
+
+  try {
+    final jsonStr = await rootBundle.loadString('assets/data/iloveabitini_default.json');
+    final List<dynamic> items = jsonDecode(jsonStr);
+
+    final db = await AppDatabase.database;
+
+    // Recupera il category_id corretto (FK usata dal repository)
+    final catResult = await db.rawQuery(
+      "SELECT id FROM categories WHERE name LIKE '%Abitini%' LIMIT 1"
+    );
+    if (catResult.isEmpty) return;
+    final categoryId = catResult.first['id'] as int;
+
+    for (final item in items) {
+      await db.insert('saved_items', {
+        'url': item['url'],
+        'platform': 'instagram',
+        'category_id': categoryId,
+        'hashtags': 'iloveabitini',
+        'og_title': item['og_title'],
+        'og_image': null,
+        'created_at': item['created_at'],
+      });
+    }
+
+    await prefs.setBool('iloveabitini_seeded_v4', true);
+  } catch (e) {
+    debugPrint('SEED errore: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load saved locale
   await _loadLocale();
+
+  // Seed dei link iloveabitini al primo avvio
+  await _seedDefaultItems();
 
   final prefs = await SharedPreferences.getInstance();
   final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;

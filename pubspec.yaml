@@ -55,6 +55,7 @@ flutter:
     - assets/images/categories/
     - assets/lottie/
     - assets/sounds/
+    - assets/data/
 
   fonts:
     - family: Poppins
