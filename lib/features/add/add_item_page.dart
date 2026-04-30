@@ -311,13 +311,16 @@ class _AddItemPageState extends State<AddItemPage> {
   Future<void> _loadCategories() async {
     try {
       final cats = await _categoryDao.getAll();
+      final prefs = await SharedPreferences.getInstance();
+      final hidden = prefs.getStringList('hidden_categories') ?? [];
+      final visible = cats.where((c) => !hidden.contains(c.name)).toList();
       if (!mounted) return;
       setState(() {
-        _categories = cats;
-        _selectedCategory = cats.isNotEmpty
-            ? cats.firstWhere(
+        _categories = visible;
+        _selectedCategory = visible.isNotEmpty
+            ? visible.firstWhere(
                 (c) => c.name == widget.existingItem?.category,
-                orElse: () => cats.first,
+                orElse: () => visible.first,
               )
             : null;
       });
