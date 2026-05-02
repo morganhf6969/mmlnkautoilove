@@ -26,7 +26,7 @@ Future<void> _loadLocale() async {
 
 Future<void> _seedDefaultItems() async {
   final prefs = await SharedPreferences.getInstance();
-  final alreadySeeded = prefs.getBool('iloveabitini_seeded_v11') ?? false;
+  final alreadySeeded = prefs.getBool('iloveabitini_seeded_v12') ?? false;
   if (alreadySeeded) return;
 
   try {
@@ -57,7 +57,9 @@ Future<void> _seedDefaultItems() async {
       });
     }
 
-    await prefs.setBool('iloveabitini_seeded_v11', true);
+    // Salva il conteggio dei link seedati per escluderli dal limite free
+    await prefs.setInt('seeded_items_count', items.length);
+    await prefs.setBool('iloveabitini_seeded_v12', true);
   } catch (e) {
     debugPrint('SEED errore: $e');
   }

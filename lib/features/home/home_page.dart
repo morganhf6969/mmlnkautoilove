@@ -41,7 +41,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _editMode = false;
   bool _isSearching = false;
   bool _isPremium = false; 
-  int _currentColumns = 4;
+  int _currentColumns = 3;
   final TextEditingController _searchCtrl = TextEditingController();
 
   final List<String> _defaultImages = const [
@@ -130,7 +130,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _hiddenCategories = hidden;
         _filteredCategories = cats.where((c) => !hidden.contains(c.name)).toList();
         _counters = counters;
-        _currentColumns = prefs.getInt('grid_columns') ?? 4;
+        _currentColumns = prefs.getInt('grid_columns') ?? 3;
         _isPremium = premiumStatus;
       });
     }

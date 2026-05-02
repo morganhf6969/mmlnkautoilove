@@ -4,12 +4,15 @@ import 'package:memolink/l10n/app_localizations.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import '../../data/models/saved_item.dart';
 import '../../data/repositories/saved_item_repository.dart';
 import '../../data/database/category_dao.dart';
 import '../add/add_item_page.dart';
+import '../files/add_file_page.dart';
 import '../../core/constants/categories.dart';
 import '../../core/constants/iloveabitini_thumbnails.dart';
+import '../../core/services/file_service.dart';
 
 class CategoryListPage extends StatefulWidget {
   final String category;
@@ -98,7 +101,40 @@ class _CategoryListPageState extends State<CategoryListPage> {
     });
   }
 
-  Map<String, dynamic> _getPlatformStyle(String url) {
+  Map<String, dynamic> _getPlatformStyle(String url, {bool isFile = false}) {
+    if (isFile) {
+      final ext = url.toLowerCase().split('.').last;
+      switch (ext) {
+        case 'pdf':
+          return {'label': 'PDF', 'color': const Color(0xFFE53935), 'icon': FontAwesomeIcons.filePdf};
+        case 'doc':
+        case 'docx':
+          return {'label': 'Word', 'color': const Color(0xFF1565C0), 'icon': FontAwesomeIcons.fileWord};
+        case 'xls':
+        case 'xlsx':
+          return {'label': 'Excel', 'color': const Color(0xFF2E7D32), 'icon': FontAwesomeIcons.fileExcel};
+        case 'ppt':
+        case 'pptx':
+          return {'label': 'PPT', 'color': const Color(0xFFE65100), 'icon': FontAwesomeIcons.filePowerpoint};
+        case 'jpg':
+        case 'jpeg':
+        case 'png':
+        case 'heic':
+        case 'gif':
+        case 'webp':
+          return {'label': 'Immagine', 'color': const Color(0xFF6A1B9A), 'icon': FontAwesomeIcons.fileImage};
+        case 'mp4':
+        case 'mov':
+        case 'avi':
+          return {'label': 'Video', 'color': const Color(0xFF00695C), 'icon': FontAwesomeIcons.fileVideo};
+        case 'mp3':
+        case 'm4a':
+        case 'wav':
+          return {'label': 'Audio', 'color': const Color(0xFF00838F), 'icon': FontAwesomeIcons.fileAudio};
+        default:
+          return {'label': 'File', 'color': Colors.blueGrey.shade600, 'icon': FontAwesomeIcons.file};
+      }
+    }
     final lowerUrl = url.toLowerCase();
     if (lowerUrl.contains('instagram.com') || lowerUrl.contains('instagr.am')) {
       return {'label': 'Instagram', 'color': const Color(0xFFE1306C), 'icon': FontAwesomeIcons.instagram};
@@ -246,6 +282,15 @@ class _CategoryListPageState extends State<CategoryListPage> {
     }
   }
 
+  Future<void> _openFile(String path) async {
+    final result = await OpenFilex.open(path);
+    if (result.type != ResultType.done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossibile aprire il file: ${result.message}')),
+      );
+    }
+  }
+
   Future<void> _launchURL(String url) async {
     final String trimmedUrl = url.trim();
     if (trimmedUrl.isEmpty) return;
@@ -264,6 +309,9 @@ class _CategoryListPageState extends State<CategoryListPage> {
 
   Future<void> _deleteItem(SavedItem item) async {
     if (item.id == null) return;
+    if (item.platform == 'file') {
+      await FileService.deleteFile(item.url);
+    }
     await _repo.delete(item.id!);
     _load();
   }
@@ -367,7 +415,7 @@ class _CategoryListPageState extends State<CategoryListPage> {
                   child: _items.isEmpty
                       ? Center(child: Text(loc.noLinksFound))
                       : GridView.builder(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
@@ -384,6 +432,20 @@ class _CategoryListPageState extends State<CategoryListPage> {
                 ),
               ],
             ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'add_file',
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddFilePage(category: widget.category),
+            ),
+          );
+          if (result == true) _load();
+        },
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.attach_file_rounded, color: Colors.white),
+      ),
     );
   }
 
@@ -428,22 +490,23 @@ class _CategoryListPageState extends State<CategoryListPage> {
   }
 
   Widget _buildGridCard(SavedItem item) {
+    final isFile = item.platform == 'file';
     final hasTitle = item.ogTitle != null && item.ogTitle!.isNotEmpty;
-    final style = _getPlatformStyle(item.url);
-
-    // Risolvi thumbnail: DB → mappa statica → fetch lazy
-    final thumbPath = item.ogImage?.isNotEmpty == true
-        ? item.ogImage
-        : kIloveabitiniThumbnails[item.url] ?? kIloveabitiniThumbnails['${item.url}/'];
-
-    if (thumbPath == null && item.id != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchOgImage(item));
-    }
+    final style = _getPlatformStyle(item.url, isFile: isFile);
     final iconColor = style['color'] as Color;
     final iconData = style['icon'] as IconData;
 
+    // Risolvi thumbnail: DB → mappa statica → fetch lazy (solo per link, non file)
+    final thumbPath = isFile ? null : (item.ogImage?.isNotEmpty == true
+        ? item.ogImage
+        : kIloveabitiniThumbnails[item.url] ?? kIloveabitiniThumbnails['${item.url}/']);
+
+    if (!isFile && thumbPath == null && item.id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchOgImage(item));
+    }
+
     return GestureDetector(
-      onTap: () => _launchURL(item.url),
+      onTap: () => isFile ? _openFile(item.url) : _launchURL(item.url),
       onLongPress: () => _showItemActions(item),
       child: Container(
         clipBehavior: Clip.hardEdge,
@@ -475,15 +538,6 @@ class _CategoryListPageState extends State<CategoryListPage> {
                     ),
                     child: Center(
                       child: FaIcon(iconData, size: 14, color: iconColor),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    style['label'] as String,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: iconColor,
                     ),
                   ),
                   const Spacer(),

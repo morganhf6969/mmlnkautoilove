@@ -11,12 +11,20 @@ class SavedItemRepository {
   // SALVATAGGIO
   Future<void> save(SavedItem item, {bool isPremium = false}) async {
     final db = await AppDatabase.database;
-    
+
     // Controllo limite 10 link per versione Free (solo su nuovi inserimenti)
+    // I link pre-seedati di I ❤️ Abitini non contano verso il limite
     if (!isPremium && item.id == null) {
-      final int totalCount = await getTotalCount();
-      if (totalCount >= 10) {
-        throw Exception("Limite di 10 link raggiunto. Passa a Premium per salvarne infiniti!");
+      if (item.platform == 'file') {
+        final int fileCount = await getUserFileCount();
+        if (fileCount >= 10) {
+          throw Exception("Limite di 10 file raggiunto. Passa a Premium per salvarne infiniti!");
+        }
+      } else {
+        final int userCount = await getUserItemCount();
+        if (userCount >= 10) {
+          throw Exception("Limite di 10 link raggiunto. Passa a Premium per salvarne infiniti!");
+        }
       }
     }
     
@@ -137,6 +145,28 @@ class SavedItemRepository {
   Future<int> getTotalCount() async {
     final db = await AppDatabase.database;
     final result = await db.rawQuery('SELECT COUNT(*) as total FROM saved_items');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // CONTEGGIO LINK AGGIUNTI DALL'UTENTE (esclusi i link pre-seedati di I ❤️ Abitini)
+  Future<int> getUserItemCount() async {
+    final db = await AppDatabase.database;
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as total
+      FROM saved_items si
+      JOIN categories c ON si.category_id = c.id
+      WHERE c.name NOT LIKE '%Abitini%'
+        AND si.platform != 'file'
+    ''');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // CONTEGGIO FILE AGGIUNTI DALL'UTENTE
+  Future<int> getUserFileCount() async {
+    final db = await AppDatabase.database;
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as total FROM saved_items WHERE platform = 'file'",
+    );
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
