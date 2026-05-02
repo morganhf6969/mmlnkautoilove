@@ -26,7 +26,7 @@ Future<void> _loadLocale() async {
 
 Future<void> _seedDefaultItems() async {
   final prefs = await SharedPreferences.getInstance();
-  final alreadySeeded = prefs.getBool('iloveabitini_seeded_v4') ?? false;
+  final alreadySeeded = prefs.getBool('iloveabitini_seeded_v11') ?? false;
   if (alreadySeeded) return;
 
   try {
@@ -42,19 +42,22 @@ Future<void> _seedDefaultItems() async {
     if (catResult.isEmpty) return;
     final categoryId = catResult.first['id'] as int;
 
+    // Elimina i vecchi link della categoria prima di ri-seminare
+    await db.delete('saved_items', where: 'category_id = ?', whereArgs: [categoryId]);
+
     for (final item in items) {
       await db.insert('saved_items', {
         'url': item['url'],
-        'platform': 'instagram',
+        'platform': item['platform'] ?? 'tiktok',
         'category_id': categoryId,
-        'hashtags': 'iloveabitini',
+        'hashtags': item['hashtags'] ?? '',
         'og_title': item['og_title'],
-        'og_image': null,
+        'og_image': item['og_image'],
         'created_at': item['created_at'],
       });
     }
 
-    await prefs.setBool('iloveabitini_seeded_v4', true);
+    await prefs.setBool('iloveabitini_seeded_v11', true);
   } catch (e) {
     debugPrint('SEED errore: $e');
   }

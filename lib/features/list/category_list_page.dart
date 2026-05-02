@@ -3,10 +3,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolink/l10n/app_localizations.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../../data/models/saved_item.dart';
 import '../../data/repositories/saved_item_repository.dart';
+import '../../data/database/category_dao.dart';
 import '../add/add_item_page.dart';
 import '../../core/constants/categories.dart';
+import '../../core/constants/iloveabitini_thumbnails.dart';
 
 class CategoryListPage extends StatefulWidget {
   final String category;
@@ -29,6 +32,12 @@ class _CategoryListPageState extends State<CategoryListPage> {
   bool _sortNewestFirst = true;
   String? _selectedHashtag;
 
+  // Lista nomi categorie visibili (caricate dal DB, senza quelle nascoste)
+  List<String> _visibleCategoryNames = [];
+
+  // Tiene traccia degli ID già in fetch per non rilanciare richieste duplicate
+  final Set<int> _fetchingThumbnails = {};
+
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
@@ -46,34 +55,46 @@ class _CategoryListPageState extends State<CategoryListPage> {
 
   Future<void> _load() async {
     final items = await _repo.getByCategory(widget.category);
+
+    // Carica TUTTE le categorie dal DB (incluse le nascoste):
+    // nel dialog di modifica link ha senso poter spostare un link
+    // anche in una categoria nascosta dalla home screen.
+    final cats = await CategoryDao().getAll();
+    final allNames = cats.map((c) => c.name).toList();
+
     if (!mounted) return;
+
     setState(() {
       _allItems = items;
-      _applyFilters();
+      _visibleCategoryNames = allNames;
       _loading = false;
     });
+    _applyFilters();
   }
 
   void _applyFilters() {
+    if (!mounted) return;
     final query = _searchController.text.toLowerCase();
 
-    setState(() {
-      _items = _allItems.where((item) {
-        bool matchesHashtag =
-            _selectedHashtag == null || item.hashtags.contains(_selectedHashtag);
-        bool matchesQuery = true;
-        if (query.isNotEmpty) {
-          final titleMatch = (item.ogTitle ?? '').toLowerCase().contains(query);
-          final hashtagsMatch =
-              item.hashtags.any((tag) => tag.toLowerCase().contains(query));
-          matchesQuery = titleMatch || hashtagsMatch;
-        }
-        return matchesHashtag && matchesQuery;
-      }).toList();
+    final filtered = _allItems.where((item) {
+      final matchesHashtag =
+          _selectedHashtag == null || item.hashtags.contains(_selectedHashtag);
+      bool matchesQuery = true;
+      if (query.isNotEmpty) {
+        final titleMatch = (item.ogTitle ?? '').toLowerCase().contains(query);
+        final hashtagsMatch =
+            item.hashtags.any((tag) => tag.toLowerCase().contains(query));
+        matchesQuery = titleMatch || hashtagsMatch;
+      }
+      return matchesHashtag && matchesQuery;
+    }).toList();
 
-      _items.sort((a, b) => _sortNewestFirst
-          ? b.createdAt.compareTo(a.createdAt)
-          : a.createdAt.compareTo(b.createdAt));
+    filtered.sort((a, b) => _sortNewestFirst
+        ? b.createdAt.compareTo(a.createdAt)
+        : a.createdAt.compareTo(b.createdAt));
+
+    setState(() {
+      _items = filtered;
     });
   }
 
@@ -156,6 +177,75 @@ class _CategoryListPageState extends State<CategoryListPage> {
     );
   }
 
+  /// Recupera il thumbnail in background tramite oEmbed (Instagram/altri) e aggiorna DB + UI
+  Future<void> _fetchOgImage(SavedItem item) async {
+    if (item.id == null) return;
+    if (_fetchingThumbnails.contains(item.id)) return;
+    _fetchingThumbnails.add(item.id!);
+
+    try {
+      String? imageUrl;
+
+      // Instagram: usa l'API oEmbed pubblica
+      if (item.url.contains('instagram.com')) {
+        final oembedUrl = Uri.parse(
+          'https://api.instagram.com/oembed/?url=${Uri.encodeComponent(item.url)}&maxwidth=640',
+        );
+        final res = await http.get(oembedUrl).timeout(const Duration(seconds: 10));
+        if (res.statusCode == 200) {
+          final json = res.body;
+          final match = RegExp('"thumbnail_url"\\s*:\\s*"([^"]+)"').firstMatch(json);
+          imageUrl = match?.group(1)?.replaceAll(r'\/', '/');
+        }
+      }
+
+      // Fallback generico: scraping og:image
+      if (imageUrl == null) {
+        final res = await http.get(
+          Uri.parse(item.url),
+          headers: {'User-Agent': 'Mozilla/5.0 (compatible; MemoLink/1.0)'},
+        ).timeout(const Duration(seconds: 10));
+        if (res.statusCode == 200) {
+          final match = RegExp(
+            'property=["\']og:image["\'][^>]+content=["\']([^"\'\\s>]+)',
+            caseSensitive: false,
+          ).firstMatch(res.body) ??
+          RegExp(
+            'content=["\']([^"\'\\s>]+)["\'][^>]+property=["\']og:image',
+            caseSensitive: false,
+          ).firstMatch(res.body);
+          imageUrl = match?.group(1);
+        }
+      }
+
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        final updated = SavedItem(
+          id: item.id,
+          url: item.url,
+          platform: item.platform,
+          category: item.category,
+          hashtags: item.hashtags,
+          createdAt: item.createdAt,
+          ogTitle: item.ogTitle,
+          ogImage: imageUrl,
+        );
+        await _repo.save(updated);
+        if (mounted) {
+          setState(() {
+            final idx = _allItems.indexWhere((e) => e.id == item.id);
+            if (idx != -1) _allItems[idx] = updated;
+            final idx2 = _items.indexWhere((e) => e.id == item.id);
+            if (idx2 != -1) _items[idx2] = updated;
+          });
+        }
+      }
+    } catch (_) {
+      // Silenzioso — ritenterà alla prossima apertura della pagina
+    } finally {
+      _fetchingThumbnails.remove(item.id);
+    }
+  }
+
   Future<void> _launchURL(String url) async {
     final String trimmedUrl = url.trim();
     if (trimmedUrl.isEmpty) return;
@@ -214,14 +304,57 @@ class _CategoryListPageState extends State<CategoryListPage> {
               });
             },
           ),
-          IconButton(
-            icon: Icon(_sortNewestFirst ? Icons.sort : Icons.history),
-            onPressed: () {
-              setState(() {
-                _sortNewestFirst = !_sortNewestFirst;
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'newest') {
+                setState(() { _sortNewestFirst = true; });
                 _applyFilters();
-              });
+              } else if (value == 'oldest') {
+                setState(() { _sortNewestFirst = false; });
+                _applyFilters();
+              } else if (value == 'clear') {
+                _confirmClearCategory();
+              }
             },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'newest',
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_downward_rounded,
+                        color: _sortNewestFirst ? Colors.blue : Colors.grey, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Dal più recente',
+                        style: TextStyle(
+                            fontWeight: _sortNewestFirst ? FontWeight.bold : FontWeight.normal)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'oldest',
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_upward_rounded,
+                        color: !_sortNewestFirst ? Colors.blue : Colors.grey, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Dal più vecchio',
+                        style: TextStyle(
+                            fontWeight: !_sortNewestFirst ? FontWeight.bold : FontWeight.normal)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'clear',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_rounded, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('Svuota categoria', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -240,7 +373,7 @@ class _CategoryListPageState extends State<CategoryListPage> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
-                            childAspectRatio: 0.85,
+                            childAspectRatio: 1.1,
                           ),
                           itemCount: _items.length,
                           itemBuilder: (context, index) {
@@ -297,8 +430,17 @@ class _CategoryListPageState extends State<CategoryListPage> {
   Widget _buildGridCard(SavedItem item) {
     final hasTitle = item.ogTitle != null && item.ogTitle!.isNotEmpty;
     final style = _getPlatformStyle(item.url);
+
+    // Risolvi thumbnail: DB → mappa statica → fetch lazy
+    final thumbPath = item.ogImage?.isNotEmpty == true
+        ? item.ogImage
+        : kIloveabitiniThumbnails[item.url] ?? kIloveabitiniThumbnails['${item.url}/'];
+
+    if (thumbPath == null && item.id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchOgImage(item));
+    }
     final iconColor = style['color'] as Color;
-    final iconData = style['icon'] as IconData; // FontAwesomeIcons è IconData
+    final iconData = style['icon'] as IconData;
 
     return GestureDetector(
       onTap: () => _launchURL(item.url),
@@ -315,71 +457,109 @@ class _CategoryListPageState extends State<CategoryListPage> {
                 offset: const Offset(0, 4)),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Icona social al posto dell'anteprima
-            SizedBox(
-              height: 80,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.08),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(18)),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Riga superiore: icona social + data
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: FaIcon(iconData, size: 14, color: iconColor),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    style['label'] as String,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: iconColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${item.createdAt.day.toString().padLeft(2, '0')}/${item.createdAt.month.toString().padLeft(2, '0')}/${item.createdAt.year.toString().substring(2)}',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey.shade400,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Corpo: anteprima a sinistra, hashtag a destra
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FaIcon(iconData, size: 36, color: iconColor),
-                    const SizedBox(height: 6),
-                    Text(
-                      style['label'] as String,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: iconColor,
-                        letterSpacing: 0.5,
+                    // Anteprima immagine (se disponibile)
+                    if (thumbPath != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: SizedBox(
+                          width: 72,
+                          child: thumbPath.startsWith('assets/')
+                              ? Image.asset(
+                                  thumbPath,
+                                  width: 72,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.network(
+                                  thumbPath,
+                                  width: 72,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const SizedBox.shrink(),
+                                ),
+                        ),
+                      ),
+                    if (thumbPath != null) const SizedBox(width: 8),
+                    // Hashtag allineati a destra
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: item.hashtags.isNotEmpty
+                            ? Text(
+                                item.hashtags.map((t) => '#$t').join('\n'),
+                                textAlign: TextAlign.right,
+                                overflow: TextOverflow.fade,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.blue.shade400,
+                                  height: 1.5,
+                                ),
+                              )
+                            : hasTitle
+                                ? Text(
+                                    item.ogTitle!,
+                                    textAlign: TextAlign.right,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.black54,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            // Titolo e hashtag (mai l'URL grezzo)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (hasTitle)
-                      Text(
-                        item.ogTitle!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    if (item.hashtags.isNotEmpty) ...[
-                      if (hasTitle) const SizedBox(height: 4),
-                      Text(
-                        item.hashtags.map((t) => '#$t').join(' '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.blue.shade400,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -461,7 +641,16 @@ class _CategoryListPageState extends State<CategoryListPage> {
   }
 
   void _showEditDialog(SavedItem item) {
-    final categoryNames = appCategories.map((c) => c.label).toList();
+    // Usa la lista già caricata in _load() — include tutte le categorie
+    // visibili (dal DB, escluse le nascoste), aggiornata ad ogni apertura pagina.
+    final categoryNames = List<String>.from(_visibleCategoryNames);
+
+    // Se la categoria del link non compare nella lista visibile (es. è nascosta),
+    // aggiungila comunque per evitare un valore non valido nel dropdown.
+    if (!categoryNames.contains(item.category)) {
+      categoryNames.insert(0, item.category);
+    }
+
     String selectedCategory = item.category;
     final hashtagController =
         TextEditingController(text: item.hashtags.join(' '));
@@ -479,9 +668,7 @@ class _CategoryListPageState extends State<CategoryListPage> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButton<String>(
-                value: categoryNames.contains(selectedCategory)
-                    ? selectedCategory
-                    : categoryNames.first,
+                value: selectedCategory,
                 isExpanded: true,
                 items: categoryNames
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -534,6 +721,36 @@ class _CategoryListPageState extends State<CategoryListPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmClearCategory() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Svuota categoria'),
+        content: Text(
+            'Vuoi eliminare tutti i ${_allItems.length} link in "${widget.category}"? L\'operazione non è reversibile.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annulla')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _repo.deleteByCategory(widget.category);
+              _load();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Categoria svuotata ✓')),
+                );
+              }
+            },
+            child: const Text('Elimina tutto',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

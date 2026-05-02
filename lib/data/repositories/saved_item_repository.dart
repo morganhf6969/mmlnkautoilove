@@ -183,6 +183,17 @@ class SavedItemRepository {
     await db.delete('saved_items');
   }
 
+  Future<int> deleteByCategory(String categoryName) async {
+    final db = await AppDatabase.database;
+    final categoryId = await _getCategoryIdByName(categoryName);
+    if (categoryId == null) return 0;
+    return await db.delete(
+      'saved_items',
+      where: 'category_id = ?',
+      whereArgs: [categoryId],
+    );
+  }
+
   // --- LOGICA DI BACKUP AGGIORNATA ---
 
   Future<String?> exportBackup() async {
@@ -238,16 +249,40 @@ class SavedItemRepository {
 
         final Map<String, dynamic> backupData = jsonDecode(jsonString);
         final db = await AppDatabase.database;
-        
+
         await db.transaction((txn) async {
+          // 1. Inserisci le categorie (ignora se già esistono per nome)
           if (backupData['categories'] != null) {
             for (var cat in backupData['categories']) {
-              await txn.insert('categories', cat, conflictAlgorithm: ConflictAlgorithm.ignore);
+              await txn.insert('categories', cat,
+                  conflictAlgorithm: ConflictAlgorithm.ignore);
             }
           }
+
+          // 2. Costruisci una mappa nome→id reale (post-insert)
+          final catRows = await txn.query('categories');
+          final Map<String, int> nameToId = {
+            for (var r in catRows) r['name'] as String: r['id'] as int,
+          };
+
+          // 3. Inserisci i link risolvendo il category_id per nome
           if (backupData['items'] != null) {
-            for (var item in backupData['items']) {
-              await txn.insert('saved_items', item, conflictAlgorithm: ConflictAlgorithm.replace);
+            for (var rawItem in backupData['items']) {
+              final item = Map<String, dynamic>.from(rawItem);
+
+              // Se il JSON contiene "category_name", usa quello per risolvere l'id
+              if (item['category_name'] != null) {
+                final resolvedId = nameToId[item['category_name']];
+                if (resolvedId != null) item['category_id'] = resolvedId;
+                item.remove('category_name');
+              }
+
+              // Rimuovi l'id originale così SQLite assegna uno nuovo (evita conflitti)
+              item.remove('id');
+              item['created_at'] ??= DateTime.now().toIso8601String();
+
+              await txn.insert('saved_items', item,
+                  conflictAlgorithm: ConflictAlgorithm.ignore);
             }
           }
         });
