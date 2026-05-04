@@ -253,7 +253,9 @@ async def _check(context: ContextTypes.DEFAULT_TYPE):
 # ── Command handlers ──────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    log.info(">>> /start ricevuto da chat_id: %s", update.effective_chat.id)
     if update.effective_chat.id != ADMIN_CHAT_ID:
+        await update.message.reply_text(f"Chat ID: {update.effective_chat.id}")
         return
     await update.message.reply_text(
         "👋 Bot MemoLink attivo!\n\n"
