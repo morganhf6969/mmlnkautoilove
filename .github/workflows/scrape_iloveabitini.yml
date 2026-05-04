@@ -1,0 +1,70 @@
+name: 🔄 Scrape @iloveabitini
+
+on:
+  schedule:
+    # Esegui ogni 6 ore (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    # Permette di avviare il workflow manualmente da GitHub
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # necessario per fare commit nel repo
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: 📦 Installa dipendenze
+        run: pip install -r scripts/requirements.txt
+
+      # Ripristina la sessione Instagram salvata (evita login frequenti)
+      - name: 🔑 Ripristina sessione Instagram
+        uses: actions/cache@v4
+        with:
+          path: scripts/.instagram_session.json
+          key: instagram-session-${{ runner.os }}
+          restore-keys: |
+            instagram-session-
+
+      - name: 🕷️ Esegui scraper
+        id: scraper
+        env:
+          INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
+          INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
+        run: |
+          output=$(python scripts/scraper.py)
+          echo "$output"
+          echo "$output" >> $GITHUB_OUTPUT
+
+      # Salva la sessione aggiornata per il prossimo run
+      - name: 💾 Salva sessione Instagram
+        uses: actions/cache@v4
+        with:
+          path: scripts/.instagram_session.json
+          key: instagram-session-${{ runner.os }}
+
+      - name: 📝 Commit feed aggiornato
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/iloveabitini_feed.json
+          if git diff --staged --quiet; then
+            echo "✅ Nessun nuovo post, nessun commit necessario."
+          else
+            TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+            git commit -m "🔄 Feed @iloveabitini aggiornato [$TIMESTAMP]"
+            git push
+            echo "✅ Feed committato con successo."
+          fi

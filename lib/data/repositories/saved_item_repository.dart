@@ -228,6 +228,50 @@ class SavedItemRepository {
     );
   }
 
+  // ─── SYNC CLOUD: @iloveabitini ─────────────────────────────────────────────
+
+  /// Inserisce nel DB i link di "I ❤️ Abitini" presenti nel feed remoto
+  /// che non sono ancora salvati localmente (deduplicazione per URL).
+  /// Non conta verso il limite free e non tocca gli elementi già esistenti.
+  Future<int> syncIloveAbitiniFromCloud(List<Map<String, dynamic>> remoteItems) async {
+    final db = await AppDatabase.database;
+
+    final catResult = await db.rawQuery(
+      "SELECT id FROM categories WHERE name LIKE '%Abitini%' LIMIT 1",
+    );
+    if (catResult.isEmpty) return 0;
+    final categoryId = catResult.first['id'] as int;
+
+    int added = 0;
+    for (final item in remoteItems) {
+      final url = item['url'] as String?;
+      if (url == null || url.isEmpty) continue;
+
+      // Salta se già presente nel DB
+      final existing = await db.rawQuery(
+        'SELECT id FROM saved_items WHERE url = ? LIMIT 1',
+        [url],
+      );
+      if (existing.isNotEmpty) continue;
+
+      await db.insert('saved_items', {
+        'url': url,
+        'platform': item['platform'] ?? 'instagram',
+        'category_id': categoryId,
+        'hashtags': item['hashtags'] ?? '',
+        'og_title': item['og_title'],
+        'og_image': item['og_image'],
+        'title': item['og_title'],
+        'thumbnail_url': item['og_image'],
+        'created_at': item['created_at'] ?? DateTime.now().toIso8601String(),
+      });
+      added++;
+    }
+
+    debugPrint('syncIloveAbitini: $added nuovi link aggiunti dal cloud.');
+    return added;
+  }
+
   // ─── BACKUP: solo link (JSON) ──────────────────────────────────────────────
 
   Future<String?> exportBackup() async {

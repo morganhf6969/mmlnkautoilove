@@ -24,6 +24,41 @@ Future<void> _loadLocale() async {
   localeNotifier.value = Locale(code);
 }
 
+// ─── Sync automatico @iloveabitini ───────────────────────────────────────────
+const String _iloveabitiniFeedUrl =
+    'https://raw.githubusercontent.com/morganhf6969/mmlnkautoilove/main/data/iloveabitini_feed.json';
+
+/// Scarica in background il feed remoto di @iloveabitini e aggiunge
+/// al DB i link non ancora presenti. Eseguito al massimo una volta all'ora.
+Future<void> _syncIloveAbitiniInBackground() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final lastSync = prefs.getInt('iloveabitini_cloud_sync_ts') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Sincronizza al massimo ogni 60 minuti
+    if (now - lastSync < 3600 * 1000) return;
+
+    final response = await http
+        .get(Uri.parse(_iloveabitiniFeedUrl))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) return;
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawItems = data['items'] as List<dynamic>? ?? [];
+    final items = rawItems.cast<Map<String, dynamic>>();
+
+    final repo = SavedItemRepository();
+    final added = await repo.syncIloveAbitiniFromCloud(items);
+
+    await prefs.setInt('iloveabitini_cloud_sync_ts', now);
+    debugPrint('Sync @iloveabitini completato: $added nuovi link.');
+  } catch (e) {
+    debugPrint('Sync @iloveabitini fallito (ignorato): $e');
+  }
+}
+
 Future<void> _seedDefaultItems() async {
   final prefs = await SharedPreferences.getInstance();
   final alreadySeeded = prefs.getBool('iloveabitini_seeded_v12') ?? false;
@@ -73,6 +108,9 @@ void main() async {
 
   // Seed dei link iloveabitini al primo avvio
   await _seedDefaultItems();
+
+  // Sync in background dei nuovi video da @iloveabitini (fire & forget)
+  _syncIloveAbitiniInBackground();
 
   final prefs = await SharedPreferences.getInstance();
   final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
