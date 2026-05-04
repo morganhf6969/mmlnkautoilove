@@ -124,10 +124,60 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _createBackup() async {
+    // Dialog di scelta: solo link oppure link + file
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Cosa vuoi includere nel backup?'),
+        content: const Text(
+          'Puoi salvare solo i link e le categorie (file leggero) oppure includere anche tutti i file dell\'Archivio file (file più pesante).',
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.link_rounded),
+                label: const Text('Solo link e categorie'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx, 'links'),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.folder_zip_rounded),
+                label: const Text('Link + file dell\'Archivio'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueGrey.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx, 'full'),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text('Annulla'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null) return;
+
     setState(() => _isLoading = true);
     try {
-      final String? path = await _repository.exportBackup();
-      if (path != null) {
+      final String? result = choice == 'full'
+          ? await _repository.exportBackupWithFiles()
+          : await _repository.exportBackup();
+      if (result != null) {
         _showSnack('Backup salvato con successo!');
       }
     } catch (e) {
@@ -453,7 +503,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.help_outline_rounded, color: Colors.purple),
                   title: Text(loc.helpGuide),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OnboardingPage())),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OnboardingPage(isGuide: true))),
                 ),
               ]),
               const SizedBox(height: 24),

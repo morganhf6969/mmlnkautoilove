@@ -410,12 +410,13 @@ class _CategoryListPageState extends State<CategoryListPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                if (widget.category == 'Archivio file') _buildAddFileButton(),
                 _buildHashtagBar(),
                 Expanded(
                   child: _items.isEmpty
                       ? Center(child: Text(loc.noLinksFound))
                       : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
@@ -432,19 +433,43 @@ class _CategoryListPageState extends State<CategoryListPage> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'add_file',
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddFilePage(category: widget.category),
+    );
+  }
+
+  Widget _buildAddFileButton() {
+    final loc = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.attach_file_rounded, color: Colors.white),
+          label: Text(
+            loc.addFileButton,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 1.2,
             ),
-          );
-          if (result == true) _load();
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.attach_file_rounded, color: Colors.white),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueGrey.shade700,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+            elevation: 2,
+          ),
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AddFilePage(category: widget.category),
+              ),
+            );
+            if (result == true) _load();
+          },
+        ),
       ),
     );
   }

@@ -1061,6 +1061,384 @@ abstract class AppLocalizations {
   /// In it, this message translates to:
   /// **'Errore durante l\'operazione'**
   String get errorDuringOperation;
+
+  /// No description provided for @addFileButton.
+  ///
+  /// In it, this message translates to:
+  /// **'AGGIUNGI FILE'**
+  String get addFileButton;
+
+  /// No description provided for @guideNext.
+  ///
+  /// In it, this message translates to:
+  /// **'Avanti'**
+  String get guideNext;
+
+  /// No description provided for @guideSlide1Title.
+  ///
+  /// In it, this message translates to:
+  /// **'📎 Salvare un link'**
+  String get guideSlide1Title;
+
+  /// No description provided for @guideManualMethodLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'METODO MANUALE'**
+  String get guideManualMethodLabel;
+
+  /// No description provided for @guideSlide1Step1.
+  ///
+  /// In it, this message translates to:
+  /// **'Copia il link che vuoi salvare.'**
+  String get guideSlide1Step1;
+
+  /// No description provided for @guideSlide1Step2.
+  ///
+  /// In it, this message translates to:
+  /// **'Apri MemoLink e tocca il pulsante \"+\" in alto.'**
+  String get guideSlide1Step2;
+
+  /// No description provided for @guideSlide1Step3.
+  ///
+  /// In it, this message translates to:
+  /// **'Incolla l\'URL nel campo link.'**
+  String get guideSlide1Step3;
+
+  /// No description provided for @guideSlide1Step4.
+  ///
+  /// In it, this message translates to:
+  /// **'Scegli o crea una categoria.'**
+  String get guideSlide1Step4;
+
+  /// No description provided for @guideSlide1Step5.
+  ///
+  /// In it, this message translates to:
+  /// **'Aggiungi hashtag (opzionale) per trovarlo più facilmente.'**
+  String get guideSlide1Step5;
+
+  /// No description provided for @guideSlide1Step6.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca \"Salva link\".'**
+  String get guideSlide1Step6;
+
+  /// No description provided for @guideShareAndroidLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'CONDIVISIONE DIRETTA — ANDROID'**
+  String get guideShareAndroidLabel;
+
+  /// No description provided for @guideShareiOSLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'CONDIVISIONE DIRETTA — iPHONE'**
+  String get guideShareiOSLabel;
+
+  /// No description provided for @guideSlide1AndroidStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Apri il browser o un\'altra app con il contenuto che vuoi salvare.'**
+  String get guideSlide1AndroidStep1;
+
+  /// No description provided for @guideSlide1AndroidStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca \"Condividi\" (l\'icona di condivisione).'**
+  String get guideSlide1AndroidStep2;
+
+  /// No description provided for @guideSlide1AndroidStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'Seleziona MemoLink tra le app disponibili.'**
+  String get guideSlide1AndroidStep3;
+
+  /// No description provided for @guideSlide1AndroidStep4.
+  ///
+  /// In it, this message translates to:
+  /// **'MemoLink si apre automaticamente con il link già inserito.'**
+  String get guideSlide1AndroidStep4;
+
+  /// No description provided for @guideSlide1AndroidStep5.
+  ///
+  /// In it, this message translates to:
+  /// **'Scegli la categoria e salva.'**
+  String get guideSlide1AndroidStep5;
+
+  /// No description provided for @guideSlide1AndroidInfo.
+  ///
+  /// In it, this message translates to:
+  /// **'Su Android il link viene ricevuto istantaneamente: MemoLink si apre direttamente sulla schermata di salvataggio.'**
+  String get guideSlide1AndroidInfo;
+
+  /// No description provided for @guideSlide1iOSStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Apri Safari o un\'altra app con il contenuto che vuoi salvare.'**
+  String get guideSlide1iOSStep1;
+
+  /// No description provided for @guideSlide1iOSStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca \"Condividi\" (il rettangolo con la freccia in su).'**
+  String get guideSlide1iOSStep2;
+
+  /// No description provided for @guideSlide1iOSStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'Scorri le icone e seleziona MemoLink.'**
+  String get guideSlide1iOSStep3;
+
+  /// No description provided for @guideSlide1iOSStep4.
+  ///
+  /// In it, this message translates to:
+  /// **'Apri MemoLink manualmente (torna all\'app).'**
+  String get guideSlide1iOSStep4;
+
+  /// No description provided for @guideSlide1iOSStep5.
+  ///
+  /// In it, this message translates to:
+  /// **'Il link è già pronto nella schermata di salvataggio.'**
+  String get guideSlide1iOSStep5;
+
+  /// No description provided for @guideSlide1iOSStep6.
+  ///
+  /// In it, this message translates to:
+  /// **'Scegli la categoria e salva.'**
+  String get guideSlide1iOSStep6;
+
+  /// No description provided for @guideSlide1iOSInfo.
+  ///
+  /// In it, this message translates to:
+  /// **'Su iPhone il link viene memorizzato in attesa: MemoLink lo recupera automaticamente alla riapertura dell\'app.'**
+  String get guideSlide1iOSInfo;
+
+  /// No description provided for @guideSlide2Title.
+  ///
+  /// In it, this message translates to:
+  /// **'🔐 Archivio file'**
+  String get guideSlide2Title;
+
+  /// No description provided for @guideSlide2Subtitle.
+  ///
+  /// In it, this message translates to:
+  /// **'Salva documenti, immagini e video direttamente nell\'app.'**
+  String get guideSlide2Subtitle;
+
+  /// No description provided for @guideArchiveHowLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'COME ARCHIVIARE UN FILE'**
+  String get guideArchiveHowLabel;
+
+  /// No description provided for @guideSlide2Step1.
+  ///
+  /// In it, this message translates to:
+  /// **'Apri la categoria \"Archivio file\" dalla schermata principale.'**
+  String get guideSlide2Step1;
+
+  /// No description provided for @guideSlide2Step2.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca il pulsante \"AGGIUNGI FILE\" in alto.'**
+  String get guideSlide2Step2;
+
+  /// No description provided for @guideSlide2Step3.
+  ///
+  /// In it, this message translates to:
+  /// **'Seleziona il file dal tuo dispositivo.'**
+  String get guideSlide2Step3;
+
+  /// No description provided for @guideSlide2Step4.
+  ///
+  /// In it, this message translates to:
+  /// **'Scegli la categoria di destinazione (puoi cambiarla).'**
+  String get guideSlide2Step4;
+
+  /// No description provided for @guideSlide2Step5.
+  ///
+  /// In it, this message translates to:
+  /// **'Aggiungi hashtag per ritrovarlo facilmente.'**
+  String get guideSlide2Step5;
+
+  /// No description provided for @guideSlide2Step6.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca \"Salva file\".'**
+  String get guideSlide2Step6;
+
+  /// No description provided for @guideFormatsLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'FORMATI SUPPORTATI'**
+  String get guideFormatsLabel;
+
+  /// No description provided for @guideFormatsText.
+  ///
+  /// In it, this message translates to:
+  /// **'PDF · Word · Excel · PowerPoint · Immagini (JPG, PNG, HEIC) · Video (MP4, MOV) · Audio (MP3, M4A) · ZIP · e molti altri.'**
+  String get guideFormatsText;
+
+  /// No description provided for @guideCopyBoxTitle.
+  ///
+  /// In it, this message translates to:
+  /// **'I file vengono copiati nell\'app'**
+  String get guideCopyBoxTitle;
+
+  /// No description provided for @guideCopyBoxText.
+  ///
+  /// In it, this message translates to:
+  /// **'Quando salvi un file, MemoLink ne crea una copia nella propria cartella privata. Il file originale rimane invariato nel tuo dispositivo.\n\nPuoi quindi eliminare il file originale senza perdere quello salvato in MemoLink. I file archiviati non sono accessibili da altre app e sono al sicuro nella memoria interna del dispositivo.'**
+  String get guideCopyBoxText;
+
+  /// No description provided for @guideOpenFileInfo.
+  ///
+  /// In it, this message translates to:
+  /// **'Per aprire un file salvato: tocca la sua card nella categoria. L\'app usa il visualizzatore predefinito del tuo sistema.'**
+  String get guideOpenFileInfo;
+
+  /// No description provided for @guideSlide3Title.
+  ///
+  /// In it, this message translates to:
+  /// **'🗂️ Organizzazione'**
+  String get guideSlide3Title;
+
+  /// No description provided for @guideCategoriesLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'CATEGORIE'**
+  String get guideCategoriesLabel;
+
+  /// No description provided for @guideSlide3CatStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca una categoria per vederne i contenuti.'**
+  String get guideSlide3CatStep1;
+
+  /// No description provided for @guideSlide3CatStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Tieni premuto per: modificare nome/icona, condividere, nascondere o eliminare.'**
+  String get guideSlide3CatStep2;
+
+  /// No description provided for @guideSlide3CatStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'Attiva la modalità \"Modifica\" (matita in alto) per riordinare le categorie trascinandole.'**
+  String get guideSlide3CatStep3;
+
+  /// No description provided for @guideSlide3CatStep4.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca \"+\" → Nuova per creare una categoria personalizzata con emoji a scelta.'**
+  String get guideSlide3CatStep4;
+
+  /// No description provided for @guideHashtagLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'HASHTAG'**
+  String get guideHashtagLabel;
+
+  /// No description provided for @guideSlide3HashStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Aggiungi hashtag quando salvi un link o un file.'**
+  String get guideSlide3HashStep1;
+
+  /// No description provided for @guideSlide3HashStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Digita una parola: il simbolo # viene aggiunto automaticamente.'**
+  String get guideSlide3HashStep2;
+
+  /// No description provided for @guideSlide3HashStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'Premi spazio per passare al tag successivo.'**
+  String get guideSlide3HashStep3;
+
+  /// No description provided for @guideSlide3HashStep4.
+  ///
+  /// In it, this message translates to:
+  /// **'All\'interno di una categoria, filtra per hashtag con la barra colorata in alto.'**
+  String get guideSlide3HashStep4;
+
+  /// No description provided for @guideSearchSectionLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'RICERCA'**
+  String get guideSearchSectionLabel;
+
+  /// No description provided for @guideSlide3SearchStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca la 🔍 in alto nella schermata principale.'**
+  String get guideSlide3SearchStep1;
+
+  /// No description provided for @guideSlide3SearchStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Cerca per titolo, hashtag, URL o nome categoria.'**
+  String get guideSlide3SearchStep2;
+
+  /// No description provided for @guideSlide3SearchStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'All\'interno di una categoria usa la ricerca locale (🔍 in alto a destra).'**
+  String get guideSlide3SearchStep3;
+
+  /// No description provided for @guideHideShareLabel.
+  ///
+  /// In it, this message translates to:
+  /// **'NASCONDI & CONDIVIDI'**
+  String get guideHideShareLabel;
+
+  /// No description provided for @guideSlide3HideStep1.
+  ///
+  /// In it, this message translates to:
+  /// **'Tieni premuto su una categoria → \"Nascondi\": crea un PIN la prima volta.'**
+  String get guideSlide3HideStep1;
+
+  /// No description provided for @guideSlide3HideStep2.
+  ///
+  /// In it, this message translates to:
+  /// **'Le categorie nascoste si ripristinano da Impostazioni → Categorie nascoste.'**
+  String get guideSlide3HideStep2;
+
+  /// No description provided for @guideSlide3HideStep3.
+  ///
+  /// In it, this message translates to:
+  /// **'Tieni premuto → \"Condividi categoria\": genera un link che altri possono importare.'**
+  String get guideSlide3HideStep3;
+
+  /// No description provided for @guideSlide4Title.
+  ///
+  /// In it, this message translates to:
+  /// **'💡 Consigli utili'**
+  String get guideSlide4Title;
+
+  /// No description provided for @guideSlide4Tip1.
+  ///
+  /// In it, this message translates to:
+  /// **'Usa hashtag come #lavoro, #ricette, #idee per ritrovare qualsiasi cosa in pochi secondi.'**
+  String get guideSlide4Tip1;
+
+  /// No description provided for @guideSlide4Tip2.
+  ///
+  /// In it, this message translates to:
+  /// **'Con Premium puoi salvare link e file illimitati. La versione gratuita è limitata a 10 elementi.'**
+  String get guideSlide4Tip2;
+
+  /// No description provided for @guideSlide4Tip3.
+  ///
+  /// In it, this message translates to:
+  /// **'Esegui un backup periodico da Impostazioni → Dati e Sicurezza per non perdere i tuoi contenuti.'**
+  String get guideSlide4Tip3;
+
+  /// No description provided for @guideStartButton.
+  ///
+  /// In it, this message translates to:
+  /// **'Ho capito, inizia!'**
+  String get guideStartButton;
 }
 
 class _AppLocalizationsDelegate

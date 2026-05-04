@@ -3,7 +3,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/services/file_service.dart';
 import '../../data/models/saved_item.dart';
 import '../../data/repositories/saved_item_repository.dart';
-import '../../data/database/category_dao.dart';
 
 class AddFilePage extends StatefulWidget {
   final String category;
@@ -26,122 +25,44 @@ class _AddFilePageState extends State<AddFilePage> {
 
   String? _selectedFilePath;
   String? _selectedFileName;
-  String _selectedCategory = '';
-  List<String> _categoryNames = [];
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedCategory = widget.category;
-    _loadCategories();
     _hashtagController.addListener(_formatHashtags);
   }
 
   void _formatHashtags() {
     if (_formattingHashtags) return;
-    final text = _hashtagController.text;
-    if (text.isEmpty) return;
-
-    // Formatta solo se l'utente ha appena digitato uno spazio
-    if (!text.endsWith(' ')) return;
-
     _formattingHashtags = true;
-    final words = text.trim().split(RegExp(r'\s+'));
-    final formatted = words
-        .where((w) => w.isNotEmpty)
-        .map((w) => w.startsWith('#') ? w : '#$w')
-        .join(' ');
-    _hashtagController.value = TextEditingValue(
-      text: '$formatted ',
-      selection: TextSelection.collapsed(offset: formatted.length + 1),
-    );
+
+    String text = _hashtagController.text;
+
+    // Aggiunge '#' alla prima parola non appena si inizia a digitare
+    if (text.isNotEmpty && !text.startsWith('#')) {
+      text = '#$text';
+      _hashtagController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+      _formattingHashtags = false;
+      return;
+    }
+
+    // Alla pressione dello spazio: chiude il tag corrente e prepara il prossimo con '#'
+    if (text.endsWith(' ')) {
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty && !trimmed.endsWith(',')) {
+        text = '$trimmed, #';
+        _hashtagController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      }
+    }
+
     _formattingHashtags = false;
-  }
-
-  Future<void> _loadCategories() async {
-    final cats = await CategoryDao().getAll();
-    setState(() {
-      _categoryNames = cats.map((c) => c.name).toList();
-    });
-  }
-
-  Future<void> _createNewCategory() async {
-    final nameController = TextEditingController();
-    String selectedEmoji = '📁';
-
-    final List<String> emojis = [
-      '📁','📂','🗂️','📋','📌','📎','🗒️','📝','💼','🏠',
-      '❤️','⭐','🎯','🎨','🎵','📸','🎬','💡','🔑','🌟',
-      '💄','🧠','💰','☕','🌱','💕','🔮','🤖','💃','👶',
-      '🧴','🥑','🎙️','🛋️','🐱','🍹','🌿','🏃','🪴','💼',
-    ];
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('Nuova cartella'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Nome cartella',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Icona', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 120,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 8, mainAxisSpacing: 4, crossAxisSpacing: 4),
-                  itemCount: emojis.length,
-                  itemBuilder: (_, i) => GestureDetector(
-                    onTap: () => setStateDialog(() => selectedEmoji = emojis[i]),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: selectedEmoji == emojis[i]
-                            ? Colors.blue.shade100
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(child: Text(emojis[i], style: const TextStyle(fontSize: 20))),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
-            TextButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                // iconCode >= 100 = emoji, indice nell'array
-                final emojiIdx = emojis.indexOf(selectedEmoji);
-                final iconCode = emojiIdx >= 0 ? 100 + emojiIdx : 100;
-                await CategoryDao().insert(name, iconCode);
-                if (ctx.mounted) Navigator.pop(ctx);
-                await _loadCategories();
-                setState(() => _selectedCategory = name);
-              },
-              child: const Text('Crea', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _pickFile() async {
@@ -169,7 +90,7 @@ class _AddFilePageState extends State<AddFilePage> {
       final item = SavedItem(
         url: localPath,
         platform: 'file',
-        category: _selectedCategory,
+        category: widget.category,
         hashtags: hashtags,
         createdAt: DateTime.now(),
         ogTitle: _selectedFileName,
@@ -252,54 +173,6 @@ class _AddFilePageState extends State<AddFilePage> {
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // Categoria
-            const Text('Categoria',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _categoryNames.contains(_selectedCategory)
-                            ? _selectedCategory
-                            : null,
-                        isExpanded: true,
-                        hint: Text(_selectedCategory),
-                        items: _categoryNames
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _selectedCategory = v);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _createNewCategory,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.add, color: Colors.white),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 20),
 

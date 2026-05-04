@@ -62,6 +62,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     '💄', '🧠', '💰', '☕', '🌱', '💕', '🔮', '🤖',
     '💃', '👶', '🧴', '🥑', '🎙️', '💼', '🛋️', '🐱',
     '🍹', '🌿', '🏃', '🪴',
+    // Comicità, intrattenimento, cinema, cibo, benessere, AI, finanza, sport, attualità, politica, gaming, cultura POP
+    '🤣', '📺', '🍿', '🍔', '💆', '😌', '🧬', '📈',
+    '💪', '📰', '🗳️', '🏛️', '🕹️', '🌟', '🎤',
   ];
 
   @override
@@ -112,6 +115,117 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// Mostra il popup "Novità" una sola volta per questa versione.
+  Future<void> _maybeShowWhatsNew() async {
+    if (!mounted) return;
+    const String _whatsNewKey = 'whats_new_v4_1_shown';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_whatsNewKey) == true) return;
+
+    if (!mounted) return;
+    final navigatorContext = context;
+
+    await showDialog(
+      context: navigatorContext,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Titolo
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.new_releases_rounded,
+                        color: Colors.blue, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Novità',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 17)),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Novità 1 — I ❤️ Abitini
+              _buildWhatsNewItem(
+                title: 'Partnership con I ❤️ Abitini',
+                description:
+                    'Abbiamo stretto una partnership con il negozio I ❤️ Abitini. '
+                    'Trovi la categoria dedicata nella schermata principale per salvare '
+                    'tutti i tuoi outfit preferiti.',
+              ),
+              const SizedBox(height: 16),
+
+              // Novità 2 — Archivio file
+              _buildWhatsNewItem(
+                title: 'Archivio file',
+                description:
+                    'Puoi ora archiviare file di qualsiasi tipo direttamente in MemoLink: '
+                    'PDF, immagini, video, documenti e molto altro. '
+                    'I file vengono copiati in modo sicuro nella memoria dell\'app.',
+              ),
+              const SizedBox(height: 24),
+
+              // Bottone Ho capito
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    await prefs.setBool(_whatsNewKey, true);
+                    Navigator.of(navigatorContext).pop();
+                  },
+                  child: Text(
+                    Localizations.localeOf(navigatorContext).languageCode == 'en'
+                        ? 'Got it'
+                        : 'Ho capito',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWhatsNewItem({
+    required String title,
+    required String description,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        Text(description,
+            style: const TextStyle(
+                fontSize: 13, color: Colors.black54, height: 1.4)),
+      ],
+    );
+  }
+
   /// Ricarica categorie, contatori e preferenze dal DB locale (veloce, nessuna rete).
   Future<void> _loadAll() async {
     final prefs = await SharedPreferences.getInstance();
@@ -133,8 +247,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _currentColumns = prefs.getInt('grid_columns') ?? 3;
         _isPremium = premiumStatus;
       });
+      // Mostra il popup novità solo al primo caricamento,
+      // dopo che le categorie sono già visibili nella griglia.
+      if (!_whatsNewShownThisSession) {
+        _whatsNewShownThisSession = true;
+        await _maybeShowWhatsNew();
+      }
     }
   }
+
+  bool _whatsNewShownThisSession = false;
 
   /// Verifica lo stato premium tramite RevenueCat (con chiamata di rete).
   /// Aggiorna SharedPreferences e poi ricarica la UI.
@@ -701,7 +823,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         imagePath: imagePath,
                         emoji: emoji,
                         gradient: const [Colors.white, Colors.white],
-                        icon: Icons.folder,
+                        icon: cat.name == 'Archivio file'
+                            ? Icons.lock
+                            : Icons.folder,
                       );
                     }).toList(),
                     onDelete: (id) => _confirmDeleteCategory(id),

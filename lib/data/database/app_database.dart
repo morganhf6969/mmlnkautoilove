@@ -19,7 +19,7 @@ class AppDatabase {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -111,6 +111,21 @@ class AppDatabase {
         DELETE FROM categories WHERE name = 'iloveabitini'
       ''');
     }
+    if (oldVersion < 11) {
+      // Aggiungi "Archivio file" in posizione 1 (subito dopo "I ❤️ Abitini")
+      // Sposta tutte le categorie dalla posizione 1 in poi di +1
+      await db.execute('''
+        UPDATE categories
+        SET position = position + 1
+        WHERE position >= 1
+      ''');
+      // Inserisci "Archivio file" — 🔐 emoji → icon_code 144 (indice 44 + 100)
+      await db.insert('categories', {
+        'name': 'Archivio file',
+        'icon_code': 144,
+        'position': 1,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
   }
 
   static Future<void> _ensureDefaultCategories(Database db) async {
@@ -124,6 +139,7 @@ class AppDatabase {
     // Corretta la chiave da 'icon' a 'icon_code' per combaciare con lo schema
     final List<Map<String, dynamic>> defaults = [
       {'name': 'I ❤️ Abitini', 'icon_code': 9},
+      {'name': 'Archivio file', 'icon_code': 144}, // 🔐 emoji (indice 44 + 100)
       {'name': 'Cucina', 'icon_code': 1},
       {'name': 'Tecnologia', 'icon_code': 8},
       {'name': 'Arte', 'icon_code': 0},

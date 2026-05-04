@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import '../../data/database/app_database.dart';
 import '../../data/models/saved_item.dart';
+import '../../core/services/file_service.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -224,104 +228,242 @@ class SavedItemRepository {
     );
   }
 
-  // --- LOGICA DI BACKUP AGGIORNATA ---
+  // ─── BACKUP: solo link (JSON) ──────────────────────────────────────────────
 
   Future<String?> exportBackup() async {
     try {
       final db = await AppDatabase.database;
-      final List<Map<String, dynamic>> items = await db.query('saved_items');
-      final List<Map<String, dynamic>> categories = await db.query('categories');
+      final items = await db.query('saved_items');
+      final categories = await db.query('categories');
 
-      final Map<String, dynamic> backupData = {
+      final backupData = {
         'version': 1,
+        'includes_files': false,
         'items': items,
         'categories': categories,
         'exported_at': DateTime.now().toIso8601String(),
       };
 
-      final jsonString = jsonEncode(backupData);
-      final bytes = utf8.encode(jsonString);
-
-      String? outputFile = await FilePicker.platform.saveFile(
+      final bytes = utf8.encode(jsonEncode(backupData));
+      await FilePicker.platform.saveFile(
         dialogTitle: 'Salva il backup',
         fileName: 'memolink_backup.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
-        bytes: bytes, 
+        bytes: bytes,
       );
-
-      return outputFile;
+      return 'ok';
     } catch (e) {
-      debugPrint('Errore Export: $e');
+      debugPrint('Errore Export JSON: $e');
       return null;
     }
   }
 
+  // ─── BACKUP: link + file fisici (ZIP) ──────────────────────────────────────
+
+  Future<String?> exportBackupWithFiles() async {
+    try {
+      final db = await AppDatabase.database;
+      final items = await db.query('saved_items');
+      final categories = await db.query('categories');
+
+      // Nel JSON salvo il solo nome del file (non il path assoluto)
+      // così il ripristino funziona su qualsiasi dispositivo.
+      final itemsWithBasename = items.map((row) {
+        final m = Map<String, dynamic>.from(row);
+        if (m['platform'] == 'file' && m['url'] != null) {
+          m['file_basename'] = p.basename(m['url'] as String);
+        }
+        return m;
+      }).toList();
+
+      final backupData = {
+        'version': 2,
+        'includes_files': true,
+        'items': itemsWithBasename,
+        'categories': categories,
+        'exported_at': DateTime.now().toIso8601String(),
+      };
+
+      final archive = Archive();
+
+      // 1. backup.json
+      final jsonBytes = utf8.encode(jsonEncode(backupData));
+      archive.addFile(ArchiveFile('backup.json', jsonBytes.length, jsonBytes));
+
+      // 2. File fisici
+      final filesDir = await FileService.filesDir();
+      if (await filesDir.exists()) {
+        await for (final entity in filesDir.list()) {
+          if (entity is File) {
+            final fileBytes = await entity.readAsBytes();
+            archive.addFile(ArchiveFile(
+              'files/${p.basename(entity.path)}',
+              fileBytes.length,
+              fileBytes,
+            ));
+          }
+        }
+      }
+
+      final zipBytes = ZipEncoder().encode(archive);
+      if (zipBytes == null) return null;
+
+      await FilePicker.platform.saveFile(
+        dialogTitle: 'Salva il backup completo',
+        fileName: 'memolink_backup_completo.zip',
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+        bytes: Uint8List.fromList(zipBytes),
+      );
+      return 'ok';
+    } catch (e) {
+      debugPrint('Errore Export ZIP: $e');
+      return null;
+    }
+  }
+
+  // ─── RIPRISTINO (JSON o ZIP rilevato automaticamente) ──────────────────────
+
   Future<bool> importBackup() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['json', 'zip'],
         withData: true,
       );
+      if (result == null) return false;
 
-      if (result != null) {
-        String jsonString;
-        
-        if (result.files.single.bytes != null) {
-          jsonString = utf8.decode(result.files.single.bytes!);
-        } else if (result.files.single.path != null) {
-          final file = File(result.files.single.path!);
-          jsonString = await file.readAsString();
-        } else {
-          return false;
-        }
+      final ext = (result.files.single.extension ?? '').toLowerCase();
 
-        final Map<String, dynamic> backupData = jsonDecode(jsonString);
-        final db = await AppDatabase.database;
-
-        await db.transaction((txn) async {
-          // 1. Inserisci le categorie (ignora se già esistono per nome)
-          if (backupData['categories'] != null) {
-            for (var cat in backupData['categories']) {
-              await txn.insert('categories', cat,
-                  conflictAlgorithm: ConflictAlgorithm.ignore);
-            }
-          }
-
-          // 2. Costruisci una mappa nome→id reale (post-insert)
-          final catRows = await txn.query('categories');
-          final Map<String, int> nameToId = {
-            for (var r in catRows) r['name'] as String: r['id'] as int,
-          };
-
-          // 3. Inserisci i link risolvendo il category_id per nome
-          if (backupData['items'] != null) {
-            for (var rawItem in backupData['items']) {
-              final item = Map<String, dynamic>.from(rawItem);
-
-              // Se il JSON contiene "category_name", usa quello per risolvere l'id
-              if (item['category_name'] != null) {
-                final resolvedId = nameToId[item['category_name']];
-                if (resolvedId != null) item['category_id'] = resolvedId;
-                item.remove('category_name');
-              }
-
-              // Rimuovi l'id originale così SQLite assegna uno nuovo (evita conflitti)
-              item.remove('id');
-              item['created_at'] ??= DateTime.now().toIso8601String();
-
-              await txn.insert('saved_items', item,
-                  conflictAlgorithm: ConflictAlgorithm.ignore);
-            }
-          }
-        });
-        return true;
+      if (ext == 'zip') {
+        return await _importFromZip(result);
+      } else {
+        return await _importFromJson(result);
       }
-      return false;
     } catch (e) {
       debugPrint('Errore Import: $e');
       return false;
     }
+  }
+
+  // ─── Import da JSON ─────────────────────────────────────────────────────────
+
+  Future<bool> _importFromJson(FilePickerResult result) async {
+    try {
+      String jsonString;
+      if (result.files.single.bytes != null) {
+        jsonString = utf8.decode(result.files.single.bytes!);
+      } else if (result.files.single.path != null) {
+        jsonString = await File(result.files.single.path!).readAsString();
+      } else {
+        return false;
+      }
+
+      final backupData = jsonDecode(jsonString) as Map<String, dynamic>;
+      await _insertBackupData(backupData, fileBasenameToPath: {});
+      return true;
+    } catch (e) {
+      debugPrint('Errore Import JSON: $e');
+      return false;
+    }
+  }
+
+  // ─── Import da ZIP ──────────────────────────────────────────────────────────
+
+  Future<bool> _importFromZip(FilePickerResult result) async {
+    try {
+      late List<int> zipBytes;
+      if (result.files.single.bytes != null) {
+        zipBytes = result.files.single.bytes!;
+      } else if (result.files.single.path != null) {
+        zipBytes = await File(result.files.single.path!).readAsBytes();
+      } else {
+        return false;
+      }
+
+      final archive = ZipDecoder().decodeBytes(zipBytes);
+      final filesDir = await FileService.filesDir();
+
+      // Mappa basename → path locale dopo ripristino
+      final Map<String, String> basenameToPath = {};
+
+      // 1. Estrai i file fisici
+      for (final file in archive) {
+        if (file.isFile && file.name.startsWith('files/')) {
+          final basename = p.basename(file.name);
+          final dest = File(p.join(filesDir.path, basename));
+          await dest.writeAsBytes(file.content as List<int>);
+          basenameToPath[basename] = dest.path;
+        }
+      }
+
+      // 2. Leggi backup.json
+      final jsonFile = archive.findFile('backup.json');
+      if (jsonFile == null) return false;
+      final jsonString = utf8.decode(jsonFile.content as List<int>);
+      final backupData = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      await _insertBackupData(backupData, fileBasenameToPath: basenameToPath);
+      return true;
+    } catch (e) {
+      debugPrint('Errore Import ZIP: $e');
+      return false;
+    }
+  }
+
+  // ─── Inserimento dati nel DB ────────────────────────────────────────────────
+
+  Future<void> _insertBackupData(
+    Map<String, dynamic> backupData, {
+    required Map<String, String> fileBasenameToPath,
+  }) async {
+    final db = await AppDatabase.database;
+
+    await db.transaction((txn) async {
+      // 1. Categorie
+      if (backupData['categories'] != null) {
+        for (final cat in backupData['categories']) {
+          await txn.insert('categories', cat,
+              conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+      }
+
+      // 2. Mappa nome → id reale
+      final catRows = await txn.query('categories');
+      final nameToId = {
+        for (final r in catRows) r['name'] as String: r['id'] as int,
+      };
+
+      // 3. Item
+      if (backupData['items'] != null) {
+        for (final rawItem in backupData['items']) {
+          final item = Map<String, dynamic>.from(rawItem);
+
+          // Risolvi category_id
+          if (item['category_name'] != null) {
+            final resolvedId = nameToId[item['category_name']];
+            if (resolvedId != null) item['category_id'] = resolvedId;
+            item.remove('category_name');
+          }
+
+          // Per i file: aggiorna il path con quello locale ripristinato
+          if (item['platform'] == 'file' && item['file_basename'] != null) {
+            final basename = item['file_basename'] as String;
+            final localPath = fileBasenameToPath[basename];
+            if (localPath != null) item['url'] = localPath;
+            item.remove('file_basename');
+          } else {
+            item.remove('file_basename');
+          }
+
+          item.remove('id');
+          item['created_at'] ??= DateTime.now().toIso8601String();
+
+          await txn.insert('saved_items', item,
+              conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+      }
+    });
   }
 }

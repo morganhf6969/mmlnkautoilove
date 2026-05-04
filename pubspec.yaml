@@ -2,7 +2,7 @@ name: memolink
 description: App per salvare e organizzare link social in modo intelligente.
 publish_to: "none"
 
-version: 4.1.1+19
+version: 4.1.1+23
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -32,6 +32,8 @@ dependencies:
   app_links: ^6.4.0
   crypto: ^3.0.3
   open_filex: ^4.7.0
+  objective_c: ^9.3.0
+  archive: ^3.6.0
 
 dev_dependencies:
   flutter_test:

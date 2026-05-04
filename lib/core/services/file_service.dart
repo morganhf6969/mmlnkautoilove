@@ -3,7 +3,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 class FileService {
-  static Future<Directory> _filesDir() async {
+  static Future<Directory> _filesDir() async => filesDir();
+
+  /// Cartella privata dell'app per i file archiviati (pubblica per backup).
+  static Future<Directory> filesDir() async {
     final base = await getApplicationDocumentsDirectory();
     final dir = Directory(p.join(base.path, 'memolink_files'));
     if (!await dir.exists()) await dir.create(recursive: true);

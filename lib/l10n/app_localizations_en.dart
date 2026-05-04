@@ -504,4 +504,224 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorDuringOperation => 'Error during operation';
+
+  @override
+  String get addFileButton => 'ADD FILE';
+
+  @override
+  String get guideNext => 'Next';
+
+  @override
+  String get guideSlide1Title => '📎 Save a link';
+
+  @override
+  String get guideManualMethodLabel => 'MANUAL METHOD';
+
+  @override
+  String get guideSlide1Step1 => 'Copy the link you want to save.';
+
+  @override
+  String get guideSlide1Step2 =>
+      'Open MemoLink and tap the \"+\" button at the top.';
+
+  @override
+  String get guideSlide1Step3 => 'Paste the URL in the link field.';
+
+  @override
+  String get guideSlide1Step4 => 'Choose or create a category.';
+
+  @override
+  String get guideSlide1Step5 =>
+      'Add hashtags (optional) to find it more easily.';
+
+  @override
+  String get guideSlide1Step6 => 'Tap \"Save link\".';
+
+  @override
+  String get guideShareAndroidLabel => 'DIRECT SHARING — ANDROID';
+
+  @override
+  String get guideShareiOSLabel => 'DIRECT SHARING — iPHONE';
+
+  @override
+  String get guideSlide1AndroidStep1 =>
+      'Open the browser or another app with the content you want to save.';
+
+  @override
+  String get guideSlide1AndroidStep2 => 'Tap \"Share\" (the share icon).';
+
+  @override
+  String get guideSlide1AndroidStep3 =>
+      'Select MemoLink from the available apps.';
+
+  @override
+  String get guideSlide1AndroidStep4 =>
+      'MemoLink opens automatically with the link already inserted.';
+
+  @override
+  String get guideSlide1AndroidStep5 => 'Choose the category and save.';
+
+  @override
+  String get guideSlide1AndroidInfo =>
+      'On Android, the link is received instantly: MemoLink opens directly on the save screen.';
+
+  @override
+  String get guideSlide1iOSStep1 =>
+      'Open Safari or another app with the content you want to save.';
+
+  @override
+  String get guideSlide1iOSStep2 =>
+      'Tap \"Share\" (the rectangle with the upward arrow).';
+
+  @override
+  String get guideSlide1iOSStep3 =>
+      'Scroll through the icons and select MemoLink.';
+
+  @override
+  String get guideSlide1iOSStep4 =>
+      'Open MemoLink manually (go back to the app).';
+
+  @override
+  String get guideSlide1iOSStep5 =>
+      'The link is already ready on the save screen.';
+
+  @override
+  String get guideSlide1iOSStep6 => 'Choose the category and save.';
+
+  @override
+  String get guideSlide1iOSInfo =>
+      'On iPhone, the link is stored while waiting: MemoLink retrieves it automatically when the app is reopened.';
+
+  @override
+  String get guideSlide2Title => '🔐 File Archive';
+
+  @override
+  String get guideSlide2Subtitle =>
+      'Save documents, images and videos directly in the app.';
+
+  @override
+  String get guideArchiveHowLabel => 'HOW TO ARCHIVE A FILE';
+
+  @override
+  String get guideSlide2Step1 =>
+      'Open the \"File Archive\" category from the main screen.';
+
+  @override
+  String get guideSlide2Step2 => 'Tap the \"ADD FILE\" button at the top.';
+
+  @override
+  String get guideSlide2Step3 => 'Select the file from your device.';
+
+  @override
+  String get guideSlide2Step4 =>
+      'Choose the destination category (you can change it).';
+
+  @override
+  String get guideSlide2Step5 => 'Add hashtags to find it easily.';
+
+  @override
+  String get guideSlide2Step6 => 'Tap \"Save file\".';
+
+  @override
+  String get guideFormatsLabel => 'SUPPORTED FORMATS';
+
+  @override
+  String get guideFormatsText =>
+      'PDF · Word · Excel · PowerPoint · Images (JPG, PNG, HEIC) · Video (MP4, MOV) · Audio (MP3, M4A) · ZIP · and many more.';
+
+  @override
+  String get guideCopyBoxTitle => 'Files are copied into the app';
+
+  @override
+  String get guideCopyBoxText =>
+      'When you save a file, MemoLink creates a copy of it in its private folder. The original file remains unchanged on your device.\n\nYou can therefore delete the original file without losing the one saved in MemoLink. Archived files are not accessible by other apps and are safe in the device\'s internal storage.';
+
+  @override
+  String get guideOpenFileInfo =>
+      'To open a saved file: tap its card in the category. The app uses your system\'s default viewer.';
+
+  @override
+  String get guideSlide3Title => '🗂️ Organisation';
+
+  @override
+  String get guideCategoriesLabel => 'CATEGORIES';
+
+  @override
+  String get guideSlide3CatStep1 => 'Tap a category to see its contents.';
+
+  @override
+  String get guideSlide3CatStep2 =>
+      'Long press to: edit name/icon, share, hide or delete.';
+
+  @override
+  String get guideSlide3CatStep3 =>
+      'Enable \"Edit\" mode (pencil at the top) to reorder categories by dragging them.';
+
+  @override
+  String get guideSlide3CatStep4 =>
+      'Tap \"+\" → New to create a custom category with a chosen emoji.';
+
+  @override
+  String get guideHashtagLabel => 'HASHTAG';
+
+  @override
+  String get guideSlide3HashStep1 => 'Add hashtags when saving a link or file.';
+
+  @override
+  String get guideSlide3HashStep2 =>
+      'Type a word: the # symbol is added automatically.';
+
+  @override
+  String get guideSlide3HashStep3 => 'Press space to move to the next tag.';
+
+  @override
+  String get guideSlide3HashStep4 =>
+      'Within a category, filter by hashtag using the colored bar at the top.';
+
+  @override
+  String get guideSearchSectionLabel => 'SEARCH';
+
+  @override
+  String get guideSlide3SearchStep1 => 'Tap 🔍 at the top of the main screen.';
+
+  @override
+  String get guideSlide3SearchStep2 =>
+      'Search by title, hashtag, URL or category name.';
+
+  @override
+  String get guideSlide3SearchStep3 =>
+      'Within a category, use local search (🔍 at the top right).';
+
+  @override
+  String get guideHideShareLabel => 'HIDE & SHARE';
+
+  @override
+  String get guideSlide3HideStep1 =>
+      'Long press on a category → \"Hide\": create a PIN the first time.';
+
+  @override
+  String get guideSlide3HideStep2 =>
+      'Hidden categories can be restored from Settings → Hidden categories.';
+
+  @override
+  String get guideSlide3HideStep3 =>
+      'Long press → \"Share category\": generates a link that others can import.';
+
+  @override
+  String get guideSlide4Title => '💡 Useful Tips';
+
+  @override
+  String get guideSlide4Tip1 =>
+      'Use hashtags like #work, #recipes, #ideas to find anything in seconds.';
+
+  @override
+  String get guideSlide4Tip2 =>
+      'With Premium you can save unlimited links and files. The free version is limited to 10 items.';
+
+  @override
+  String get guideSlide4Tip3 =>
+      'Make periodic backups from Settings → Data & Security to not lose your content.';
+
+  @override
+  String get guideStartButton => 'Got it, let\'s start!';
 }

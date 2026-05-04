@@ -10,6 +10,8 @@ class AppCategory {
 }
 
 const List<AppCategory> appCategories = [
+  AppCategory('I ❤️ Abitini', Icons.checkroom, Colors.red),
+  AppCategory('Archivio file', Icons.lock, Colors.blueGrey),
   AppCategory('Cucina', Icons.restaurant, Colors.orange),
   AppCategory('Tecnologia', Icons.computer, Colors.blue),
   AppCategory('Arte', Icons.palette, Colors.purple),
@@ -18,7 +20,6 @@ const List<AppCategory> appCategories = [
   AppCategory('Luoghi', Icons.place, Colors.teal),
   AppCategory('Moda', Icons.checkroom, Colors.pink),
   AppCategory('Altro', Icons.more_horiz, Colors.blueGrey),
-  AppCategory('I ❤️ Abitini', Icons.checkroom, Colors.red),
 ];
 
 /// Categorie di default che non possono essere cancellate dall'utente.
@@ -31,6 +32,7 @@ const Set<String> nonDeletableCategories = {
   'Luoghi',
   'Moda',
   'I ❤️ Abitini',
+  'Archivio file',
 };
 
 const Map<String, Map<String, String>> _categoryTranslations = {
@@ -44,6 +46,7 @@ const Map<String, Map<String, String>> _categoryTranslations = {
     'Moda': 'Fashion',
     'Altro': 'Other',
     'I ❤️ Abitini': 'I ❤️ Dresses',
+    'Archivio file': 'File Archive',
   },
   'it': {
     'Cucina': 'Cucina',
@@ -55,6 +58,7 @@ const Map<String, Map<String, String>> _categoryTranslations = {
     'Moda': 'Moda',
     'Altro': 'Altro',
     'I ❤️ Abitini': 'I ❤️ Abitini',
+    'Archivio file': 'Archivio file',
   },
   'fr': {
     'Cucina': 'Cuisine',
@@ -66,6 +70,7 @@ const Map<String, Map<String, String>> _categoryTranslations = {
     'Moda': 'Mode',
     'Altro': 'Autre',
     'I ❤️ Abitini': 'I ❤️ Robes',
+    'Archivio file': 'Archive de fichiers',
   },
   'es': {
     'Cucina': 'Cocina',
@@ -77,6 +82,7 @@ const Map<String, Map<String, String>> _categoryTranslations = {
     'Moda': 'Moda',
     'Altro': 'Otro',
     'I ❤️ Abitini': 'I ❤️ Vestidos',
+    'Archivio file': 'Archivo de archivos',
   },
 };
 
