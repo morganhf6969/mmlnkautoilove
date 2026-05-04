@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import requests
 from instagrapi import Client
@@ -49,9 +50,9 @@ PENDING_FILE      = Path("pending.json")                # persistenza locale
 
 # ── Stato globale (bot mono-utente) ───────────────────────────────────────────
 
-_queue:   list[dict]  = []    # post in attesa di hashtag
-_current: dict | None = None  # post che stiamo gestendo ora
-_waiting: bool        = False # aspettiamo risposta dell'admin?
+_queue:   List[Dict]      = []    # post in attesa di hashtag
+_current: Optional[Dict]  = None  # post che stiamo gestendo ora
+_waiting: bool            = False # aspettiamo risposta dell'admin?
 
 # ── Persistenza locale ────────────────────────────────────────────────────────
 
