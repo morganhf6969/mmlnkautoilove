@@ -81,7 +81,7 @@ def _instagram_client() -> Client:
 def _scrape_new(existing_urls: set) -> list[dict]:
     cl = _instagram_client()
     user_id = cl.user_info_by_username_v1(TARGET_ACCOUNT).pk
-    medias = cl.user_medias(user_id, amount=MAX_POSTS)
+    medias = cl.user_medias_v1(user_id, amount=MAX_POSTS)
 
     new = []
     for m in medias:
