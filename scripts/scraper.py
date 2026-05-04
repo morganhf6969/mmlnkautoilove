@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from instagrapi import Client
-from instagrapi.exceptions import LoginRequired, BadPassword, ChallengeRequired
+from instagrapi.exceptions import LoginRequired
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,49 +49,36 @@ def save_feed(feed: dict, new_count: int = 0):
 # ─── Client Instagram ──────────────────────────────────────────────────────────
 
 def build_client() -> Client:
-    session_b64 = os.environ.get("INSTAGRAM_SESSION")
-    username = os.environ.get("INSTAGRAM_USERNAME")
-    password = os.environ.get("INSTAGRAM_PASSWORD")
+    import base64 as _b64, json as _json
+
+    session_b64 = os.environ.get("INSTAGRAM_SESSION", "").strip()
+
+    if not session_b64:
+        log.error("Secret INSTAGRAM_SESSION non trovato. Aggiungilo su GitHub.")
+        sys.exit(1)
+
+    # Decodifica e carica le impostazioni di sessione
+    try:
+        session_data = _json.loads(_b64.b64decode(session_b64).decode("utf-8"))
+    except Exception as e:
+        log.error("Impossibile decodificare INSTAGRAM_SESSION: %s", e)
+        sys.exit(1)
 
     cl = Client()
     cl.delay_range = [2, 5]
+    cl.set_settings(session_data)
 
-    # Modalità preferita: sessione pre-generata (evita il login da IP cloud)
-    if session_b64:
-        try:
-            import base64, json, tempfile
-            session_json = base64.b64decode(session_b64).decode("utf-8")
-            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-            tmp.write(session_json)
-            tmp.close()
-            cl.load_settings(tmp.name)
-            # Reuse session senza login completo
-            cl.get_timeline_feed()
-            log.info("Sessione Instagram ripristinata dal secret.")
-            return cl
-        except Exception as e:
-            log.warning("Sessione dal secret non valida, tento login: %s", e)
-
-    # Fallback: login con username/password
-    if not username or not password:
-        log.error("Nessuna sessione valida e credenziali mancanti.")
-        sys.exit(1)
-
+    # Verifica che la sessione sia ancora valida
     try:
-        cl.login(username, password)
-        cl.dump_settings(SESSION_FILE)
-        log.info("Login effettuato e sessione salvata.")
-    except BadPassword:
-        log.error("Password errata per @%s.", username)
-        sys.exit(1)
-    except ChallengeRequired:
-        log.error("Instagram richiede una verifica. Rigenera la sessione dal Mac.")
+        cl.get_timeline_feed()
+        log.info("Sessione Instagram ripristinata correttamente.")
+        return cl
+    except LoginRequired:
+        log.error("Sessione scaduta. Rigenera la sessione dal Mac e aggiorna il secret.")
         sys.exit(1)
     except Exception as e:
-        log.error("Errore di login: %s", e)
+        log.error("Errore verifica sessione: %s", e)
         sys.exit(1)
-
-    return cl
 
 # ─── Scraping ─────────────────────────────────────────────────────────────────
 
