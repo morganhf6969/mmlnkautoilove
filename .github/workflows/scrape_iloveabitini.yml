@@ -41,6 +41,7 @@ jobs:
       - name: 🕷️ Esegui scraper
         id: scraper
         env:
+          INSTAGRAM_SESSION: ${{ secrets.INSTAGRAM_SESSION }}
           INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
           INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
         run: |
