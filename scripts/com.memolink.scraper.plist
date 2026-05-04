@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.memolink.scraper</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/danyiuliano/Developer/memolinkV4-main/scripts/scraper_mac.py</string>
+    </array>
+
+    <!-- Esegui ogni 6 ore (21600 secondi) -->
+    <key>StartInterval</key>
+    <integer>21600</integer>
+
+    <!-- Esegui anche subito al caricamento -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/memolink_scraper.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/memolink_scraper.log</string>
+</dict>
+</plist>

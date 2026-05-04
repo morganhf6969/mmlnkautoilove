@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """
 Bot Telegram - MemoLink @iloveabitini
-Controlla ogni 6 ore i nuovi post, chiede gli hashtag e aggiorna il feed su GitHub.
+Legge data/pending.json da GitHub, chiede gli hashtag e aggiorna feed.json.
+Non fa scraping Instagram — ci pensa il Mac via LaunchAgent.
 """
 
-import asyncio
 import base64
 import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import requests
-from instagrapi import Client
-from instagrapi.exceptions import LoginRequired
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -36,93 +33,43 @@ log = logging.getLogger(__name__)
 
 # ── Configurazione ────────────────────────────────────────────────────────────
 
-TELEGRAM_TOKEN    = os.environ["TELEGRAM_TOKEN"]
-ADMIN_CHAT_ID     = int(os.environ["ADMIN_CHAT_ID"])
-GITHUB_TOKEN      = os.environ["GITHUB_TOKEN"]
-GITHUB_REPO       = os.environ["GITHUB_REPO"]          # "owner/repo"
-INSTAGRAM_SESSION = os.environ["INSTAGRAM_SESSION"]     # base64
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+ADMIN_CHAT_ID  = int(os.environ["ADMIN_CHAT_ID"])
+GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
+GITHUB_REPO    = os.environ["GITHUB_REPO"]   # "owner/repo"
 
-TARGET_ACCOUNT    = "iloveabitini"
-MAX_POSTS         = 50
-CHECK_INTERVAL    = 6 * 3600                            # secondi
-FEED_PATH         = "data/iloveabitini_feed.json"
-PENDING_FILE      = Path("pending.json")                # persistenza locale
+PENDING_PATH = "data/pending.json"
+FEED_PATH    = "data/iloveabitini_feed.json"
+POLL_INTERVAL = 10 * 60   # controlla il pending ogni 10 minuti
 
-# ── Stato globale (bot mono-utente) ───────────────────────────────────────────
+# ── Stato globale ─────────────────────────────────────────────────────────────
 
-_queue:   List[Dict]      = []    # post in attesa di hashtag
-_current: Optional[Dict]  = None  # post che stiamo gestendo ora
-_waiting: bool            = False # aspettiamo risposta dell'admin?
-
-# ── Persistenza locale ────────────────────────────────────────────────────────
-
-def _load_pending() -> list[dict]:
-    if PENDING_FILE.exists():
-        try:
-            return json.loads(PENDING_FILE.read_text())
-        except Exception:
-            return []
-    return []
-
-def _save_pending():
-    data = ([_current] if _current else []) + _queue
-    PENDING_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-
-# ── Instagram ─────────────────────────────────────────────────────────────────
-
-def _instagram_client() -> Client:
-    session_data = json.loads(base64.b64decode(INSTAGRAM_SESSION).decode())
-    cl = Client()
-    cl.delay_range = [2, 5]
-    cl.set_settings(session_data)
-    cl.get_timeline_feed()   # verifica che la sessione sia valida
-    return cl
-
-def _scrape_new(existing_urls: set) -> list[dict]:
-    cl = _instagram_client()
-    user_id = cl.user_info_by_username_v1(TARGET_ACCOUNT).pk
-    medias = cl.user_medias_v1(user_id, amount=MAX_POSTS)
-
-    new = []
-    for m in medias:
-        url = f"https://www.instagram.com/p/{m.code}/"
-        if url in existing_urls:
-            continue
-        og_image = str(m.thumbnail_url) if m.thumbnail_url else None
-        og_title = (m.caption_text or "").strip()[:120] or f"@{TARGET_ACCOUNT}"
-        new.append({
-            "url": url,
-            "platform": "instagram",
-            "og_title": og_title,
-            "og_image": og_image,
-            "hashtags": "",
-            "created_at": (
-                m.taken_at.isoformat() if m.taken_at
-                else datetime.now(timezone.utc).isoformat()
-            ),
-        })
-    return new
+_queue:   List[Dict]    = []
+_current: Optional[Dict] = None
+_waiting: bool           = False
 
 # ── GitHub API ────────────────────────────────────────────────────────────────
 
-def _github_headers():
-    return {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+def _gh_headers():
+    return {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+    }
 
-def _get_feed() -> tuple[list[dict], str]:
-    """Restituisce (items, sha_corrente)."""
+def _gh_get(path: str) -> tuple:
+    """Restituisce (items, sha)."""
     r = requests.get(
-        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{FEED_PATH}",
-        headers=_github_headers(),
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+        headers=_gh_headers(),
     )
     if r.status_code == 404:
         return [], ""
     r.raise_for_status()
-    data = r.json()
-    content = base64.b64decode(data["content"]).decode()
-    feed = json.loads(content)
-    return feed.get("items", []), data["sha"]
+    data    = r.json()
+    content = json.loads(base64.b64decode(data["content"]).decode())
+    return content.get("items", []), data["sha"]
 
-def _commit_feed(items: list[dict], sha: str):
+def _gh_put(path: str, items: list, sha: str, message: str):
     feed = {
         "version": 1,
         "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -131,144 +78,134 @@ def _commit_feed(items: list[dict], sha: str):
     content_b64 = base64.b64encode(
         json.dumps(feed, ensure_ascii=False, indent=2).encode()
     ).decode()
-    payload = {
-        "message": f"🔄 Feed aggiornato [{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}]",
-        "content": content_b64,
-        "sha": sha,
-    }
-    if not sha:
-        payload.pop("sha")
+    payload = {"message": message, "content": content_b64}
+    if sha:
+        payload["sha"] = sha
     r = requests.put(
-        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{FEED_PATH}",
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
         json=payload,
-        headers=_github_headers(),
+        headers=_gh_headers(),
     )
     r.raise_for_status()
 
 # ── Logica Telegram ───────────────────────────────────────────────────────────
 
 async def _send_next(bot):
-    """Invia il prossimo post dalla coda."""
     global _current, _waiting, _queue
 
     if not _queue:
         _current = None
         _waiting = False
-        await bot.send_message(ADMIN_CHAT_ID, "✅ Tutti i nuovi post sono stati elaborati!")
+        await bot.send_message(ADMIN_CHAT_ID, "✅ Tutti i post in pending sono stati elaborati!")
         return
 
     _current = _queue.pop(0)
     _waiting = True
-    _save_pending()
 
     url      = _current["url"]
     caption  = _current.get("og_title", "")
     og_image = _current.get("og_image")
 
     testo = (
-        f"📸 *Nuovo post da @{TARGET_ACCOUNT}*\n\n"
+        f"📸 Nuovo post da @iloveabitini\n\n"
         f"🔗 {url}\n\n"
-        f"📝 _{caption}_\n\n"
-        f"Inserisci gli hashtag \\(es\\: \\#moda \\#abitini\\)\n"
-        f"oppure /skip per saltare\\."
+        f"📝 {caption}\n\n"
+        f"Inserisci gli hashtag (es: #moda #abitini)\n"
+        f"oppure /skip per saltare."
     )
 
     try:
         if og_image:
-            await bot.send_photo(
-                ADMIN_CHAT_ID,
-                photo=og_image,
-                caption=testo,
-                parse_mode="MarkdownV2",
-            )
+            await bot.send_photo(ADMIN_CHAT_ID, photo=og_image, caption=testo)
         else:
-            await bot.send_message(ADMIN_CHAT_ID, testo, parse_mode="MarkdownV2")
+            await bot.send_message(ADMIN_CHAT_ID, testo)
     except Exception:
-        # Fallback senza markdown se la photo o il parsing fallisce
-        await bot.send_message(
-            ADMIN_CHAT_ID,
-            f"📸 Nuovo post: {url}\n\n{caption}\n\nInserisci gli hashtag o /skip:",
-        )
+        await bot.send_message(ADMIN_CHAT_ID, testo)
 
 
 async def _salva_e_avanza(bot, hashtags: str):
-    """Salva il post corrente con gli hashtag e passa al prossimo."""
     global _current, _waiting
 
     _current["hashtags"] = hashtags
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     try:
-        items, sha = _get_feed()
-        items = [_current] + items   # più recente in testa
-        _commit_feed(items, sha)
-        log.info("Aggiornato GitHub: %s", _current["url"])
+        # Aggiorna feed.json
+        feed_items, feed_sha = _gh_get(FEED_PATH)
+        feed_items = [_current] + feed_items
+        _gh_put(FEED_PATH, feed_items, feed_sha,
+                f"✅ Aggiunto post con hashtag [{ts}]")
+
+        # Rimuovi dal pending.json
+        pending_items, pending_sha = _gh_get(PENDING_PATH)
+        pending_items = [i for i in pending_items if i["url"] != _current["url"]]
+        _gh_put(PENDING_PATH, pending_items, pending_sha,
+                f"🗑️ Rimosso da pending [{ts}]")
+
+        log.info("Salvato: %s", _current["url"])
     except Exception as e:
         log.error("Errore GitHub: %s", e)
         await bot.send_message(ADMIN_CHAT_ID, f"⚠️ Errore GitHub: {e}")
 
     _current = None
     _waiting = False
-    _save_pending()
     await _send_next(bot)
 
-# ── Check periodico ───────────────────────────────────────────────────────────
+# ── Check pending periodico ───────────────────────────────────────────────────
 
-async def _check(context: ContextTypes.DEFAULT_TYPE):
-    """Chiamato ogni 6 ore dal job_queue e dal comando /check."""
+async def _poll_pending(context: ContextTypes.DEFAULT_TYPE):
     global _queue
 
-    log.info("Controllo nuovi post @%s...", TARGET_ACCOUNT)
-    bot = context.bot
-
+    log.info("Controllo pending su GitHub...")
     try:
-        items, _ = _get_feed()
-        existing = {i["url"] for i in items}
-        for p in ([_current] if _current else []) + _queue:
-            existing.add(p["url"])
+        pending_items, _ = _gh_get(PENDING_PATH)
 
-        new_posts = _scrape_new(existing)
-
-        if not new_posts:
-            log.info("Nessun nuovo post.")
+        if not pending_items:
+            log.info("Nessun post in pending.")
             return
 
-        log.info("%d nuovi post trovati.", len(new_posts))
-        _queue.extend(new_posts)
-        _save_pending()
+        # Aggiungi solo URL non già in coda o in lavorazione
+        known = {i["url"] for i in _queue}
+        if _current:
+            known.add(_current["url"])
 
-        await bot.send_message(
+        nuovi = [i for i in pending_items if i["url"] not in known]
+
+        if not nuovi:
+            log.info("Nessun nuovo post nel pending.")
+            return
+
+        log.info("%d nuovi post trovati nel pending.", len(nuovi))
+        _queue.extend(nuovi)
+
+        await context.bot.send_message(
             ADMIN_CHAT_ID,
-            f"🆕 {len(new_posts)} nuovi post da @{TARGET_ACCOUNT}! Te li mostro uno per uno.",
+            f"🆕 {len(nuovi)} nuovi post pronti! Te li mostro uno per uno.",
         )
 
         if not _waiting:
-            await _send_next(bot)
+            await _send_next(context.bot)
 
-    except LoginRequired:
-        await bot.send_message(ADMIN_CHAT_ID, "⚠️ Sessione Instagram scaduta. Rigenera il secret INSTAGRAM_SESSION.")
     except Exception as e:
-        log.error("Errore check: %s", e)
-        await bot.send_message(ADMIN_CHAT_ID, f"⚠️ Errore: {e}")
+        log.error("Errore poll pending: %s", e)
 
 # ── Command handlers ──────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    log.info(">>> /start ricevuto da chat_id: %s", update.effective_chat.id)
     if update.effective_chat.id != ADMIN_CHAT_ID:
-        await update.message.reply_text(f"Chat ID: {update.effective_chat.id}")
         return
     await update.message.reply_text(
         "👋 Bot MemoLink attivo!\n\n"
-        "/check — controlla subito nuovi post\n"
+        "/check — controlla subito il pending\n"
         "/status — quanti post sono in coda\n"
-        "/skip — salta il post corrente senza hashtag"
+        "/skip — salta il post corrente"
     )
 
 async def cmd_check(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
         return
-    await update.message.reply_text("🔍 Controllo in corso…")
-    await _check(ctx)
+    await update.message.reply_text("🔍 Controllo pending...")
+    await _poll_pending(ctx)
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
@@ -282,7 +219,7 @@ async def cmd_skip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not _waiting or not _current:
         await update.message.reply_text("Nessun post in attesa.")
         return
-    await update.message.reply_text("⏭ Post saltato (salvato senza hashtag).")
+    await update.message.reply_text("⏭ Post saltato.")
     await _salva_e_avanza(ctx.bot, "")
 
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -298,29 +235,18 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    global _queue, _current, _waiting
-
-    # Ripristina coda da file locale (dopo un riavvio)
-    pending = _load_pending()
-    if pending:
-        _current = pending[0]
-        _queue   = pending[1:]
-        _waiting = True
-        log.info("Ripristinati %d post in pending.", len(pending))
-
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Handlers
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("check",  cmd_check))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("skip",   cmd_skip))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # Check ogni 6 ore (primo check dopo 30 secondi dall'avvio)
-    app.job_queue.run_repeating(_check, interval=CHECK_INTERVAL, first=30)
+    # Controlla il pending ogni 10 minuti
+    app.job_queue.run_repeating(_poll_pending, interval=POLL_INTERVAL, first=15)
 
-    log.info("Bot avviato.")
+    log.info("Bot avviato — polling Telegram + check pending ogni 10 min.")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
