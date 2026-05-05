@@ -156,12 +156,20 @@ async def _salva_e_avanza(bot, hashtags: str):
 async def _poll_pending(context: ContextTypes.DEFAULT_TYPE):
     global _queue
 
+    # Distingui se chiamato da /check (ha update) o dal job periodico
+    is_manual = hasattr(context, '_manual_check') and context._manual_check
+
     log.info("Controllo pending su GitHub...")
     try:
         pending_items, _ = _gh_get(PENDING_PATH)
 
         if not pending_items:
             log.info("Nessun post in pending.")
+            if is_manual:
+                await context.bot.send_message(
+                    ADMIN_CHAT_ID,
+                    "📭 Nessun post in pending — @iloveabitini non ha pubblicato nulla di nuovo."
+                )
             return
 
         # Aggiungi solo URL non già in coda o in lavorazione
@@ -173,6 +181,11 @@ async def _poll_pending(context: ContextTypes.DEFAULT_TYPE):
 
         if not nuovi:
             log.info("Nessun nuovo post nel pending.")
+            if is_manual:
+                await context.bot.send_message(
+                    ADMIN_CHAT_ID,
+                    f"📭 Nessun post nuovo — {len(_queue)} già in coda."
+                )
             return
 
         log.info("%d nuovi post trovati nel pending.", len(nuovi))
@@ -205,6 +218,7 @@ async def cmd_check(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID:
         return
     await update.message.reply_text("🔍 Controllo pending...")
+    ctx._manual_check = True
     await _poll_pending(ctx)
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
