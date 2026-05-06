@@ -38,3 +38,4 @@ ios/Flutter/flutter_export_environment.sh
 
 # Sito separato
 memolink-site/
+scripts/.instagram_session.json
